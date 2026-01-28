@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Soft UI Launcher (Guide)</title>
+<style>
+/* --- 1. Design Tokens (Neumorphism & Physics) --- */
+:root {
+    /* Colors & Physics */
+    --bg-color: #EBECF0;
+    --text-main: #585D75;
+    --text-sub: #9FA4B3;
+    --shadow-light: #FFFFFF;
+    --shadow-dark: #BABECC;
+    --accent-purple: #7D6CFF;
+    --accent-blue: #4DA1FF;
+    --accent-pink: #FF6B9B;
+    --accent-green: #2ECC71;
+    --ease-spring: linear(0, 0.009, 0.035 2.1%, 0.141 4.4%, 0.723 12.9%, 0.938 16.7%, 1.017 18.4%, 1.077 20.4%, 1.121 22.8%, 1.149 25.7%, 1.159 29.6%, 1.14 34.9%, 1.101 39.4%, 1.049 46.4%, 1.003 57.2%, 0.993 64.5%, 1.001 83.2%, 1);
+    --transition-fast: 0.2s var(--ease-spring);
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    font-family: "Segoe UI", -apple-system, sans-serif;
+    margin: 0; height: 100vh;
+    display: flex; justify-content: center; align-items: center;
+    overflow: hidden; user-select: none;
+}
+
+/* --- Neumorphism Styles --- */
+.neu-out {
+    background-color: var(--bg-color);
+    box-shadow: 8px 8px 16px var(--shadow-dark), -8px -8px 16px var(--shadow-light);
+    border-radius: 24px;
+    border: 1px solid rgba(255,255,255,0.2);
+}
+.neu-in, .neu-out:active {
+    box-shadow: inset 6px 6px 10px var(--shadow-dark), inset -6px -6px 10px var(--shadow-light);
+    border: none;
+}
+
+/* Layout */
+.dashboard {
+    width: 90%; max-width: 1000px; height: 85vh;
+    display: grid; grid-template-columns: 280px 1fr; grid-template-rows: 80px 1fr;
+    gap: 32px; padding: 32px; box-sizing: border-box;
+}
+
+/* Header */
+.header { grid-column: 1 / -1; display: flex; align-items: center; gap: 24px; }
+.logo-area { width: 80px; height: 80px; display: flex; justify-content: center; align-items: center; font-size: 2rem; color: var(--accent-purple); font-weight: bold; }
+.search-bar { flex-grow: 1; height: 60px; border-radius: 30px; display: flex; align-items: center; padding: 0 24px; color: var(--text-sub); font-size: 1.2rem; }
+.search-bar input { background: transparent; border: none; width: 100%; height: 100%; font-size: 1.1rem; color: var(--text-main); outline: none; margin-left: 12px; }
+
+/* Sidebar */
+.sidebar { display: flex; flex-direction: column; gap: 24px; }
+.widget-card { padding: 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 140px; }
+.control-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.icon-btn { width: 60px; height: 60px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 1.4rem; cursor: pointer; color: var(--text-sub); transition: color 0.2s, transform 0.1s var(--ease-spring); }
+.icon-btn:hover { color: var(--accent-blue); transform: scale(1.05); }
+
+/* Main Content Area (Updated for Info Box) */
+.main-content {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    overflow: hidden; /* コンテナからはみ出さないように */
+}
+
+/* Info Box Styles */
+.info-box {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    flex-shrink: 0; /* スクロールしても縮まない */
+}
+.info-row {
+    display: flex;
+    align-items: flex-start; /* 長文対応 */
+    gap: 16px;
+    line-height: 1.6;
+    font-size: 0.95rem;
+}
+.badge {
+    padding: 6px 16px;
+    border-radius: 12px;
+    font-weight: bold;
+    font-size: 0.85rem;
+    white-space: nowrap;
+    display: inline-block;
+    margin-top: 2px; /* テキストとの位置合わせ */
+}
+
+/* Main Grid */
+.launcher-grid { 
+    display: grid; 
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); 
+    grid-auto-rows: 140px; 
+    gap: 24px; 
+    overflow-y: auto; /* Gridの中だけスクロール */
+    padding: 16px; 
+    padding-bottom: 40px; 
+    height: 100%;
+}
+.launcher-grid::-webkit-scrollbar { display: none; }
+
+.app-card { display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer; transition: transform var(--transition-fast); text-decoration: none; color: var(--text-main); }
+.app-card:hover { transform: translateY(-4px); }
+.app-icon { font-size: 2.5rem; margin-bottom: 12px; text-shadow: 2px 2px 4px var(--shadow-dark); }
+.app-title { font-size: 0.9rem; font-weight: 600; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 80%; }
+
+/* Context Menu & Modal */
+#context-menu { position: fixed; z-index: 10000; width: 200px; padding: 12px; display: none; flex-direction: column; gap: 8px; }
+#context-menu.visible { display: flex; }
+.menu-item { padding: 12px 16px; border-radius: 12px; cursor: pointer; font-size: 0.9rem; display: flex; align-items: center; gap: 12px; }
+.menu-item:hover { background-color: rgba(255,255,255,0.5); color: var(--accent-purple); }
+
+#edit-modal { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(235, 236, 240, 0.85); backdrop-filter: blur(8px); z-index: 2000; display: none; justify-content: center; align-items: center; }
+.modal-content { width: 600px; padding: 32px; display: flex; flex-direction: column; gap: 20px; }
+textarea { width: 100%; height: 300px; background: var(--bg-color); border: none; border-radius: 16px; padding: 20px; font-family: monospace; font-size: 14px; color: var(--text-main); outline: none; resize: none; }
+</style>
+</head>
+<body>
+
+<div class="dashboard neu-out">
+    <div class="header">
+        <div class="logo-area neu-out" style="border-radius: 20px;">Ui</div>
+        <div class="search-bar neu-in"><span>🔍</span><input type="text" id="search-input" placeholder="Search..."></div>
+        <div class="icon-btn neu-out" id="btn-settings">⚙️</div>
+    </div>
+    
+    <div class="sidebar">
+        <div class="widget-card neu-out">
+            <div id="clock-time" style="font-size: 2rem; font-weight: bold;">12:00</div>
+            <div id="clock-date" style="font-size: 0.9rem; color: var(--text-sub);">...</div>
+        </div>
+        <div class="control-panel">
+            <div class="icon-btn neu-out">🌙</div><div class="icon-btn neu-out">📊</div>
+            <div class="icon-btn neu-out" style="color: var(--accent-pink);">♥</div><div class="icon-btn neu-out" style="color: var(--accent-blue);">🔗</div>
+        </div>
+        <div class="widget-card neu-out" style="flex-direction: row; gap: 10px; min-height: 60px;">
+             <span style="font-size: 0.8rem;">VOL</span>
+             <div class="neu-in" style="flex-grow: 1; height: 12px; border-radius: 6px;"><div style="width: 60%; height: 100%; background: var(--accent-purple); border-radius: 6px;"></div></div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="info-box neu-out">
+            <div class="info-row">
+                <span class="badge neu-in" style="color: var(--accent-blue);">基本編</span>
+                <span>「LPつくるくん」でヒアリング式にLPを作り、「コード要件チェック」でチェックして完成</span>
+            </div>
+            <div class="info-row">
+                <span class="badge neu-in" style="color: var(--accent-purple);">応用編</span>
+                <span>「画像よみとりくん」でHTMLコードにして、「コード整いくん」で商品用に整えて、「コード要件チェック」でチェックして完成</span>
+            </div>
+        </div>
+
+        <div class="launcher-grid" id="app-grid"></div>
+    </div>
+</div>
+
+<div id="context-menu" class="neu-out">
+    <div class="menu-item" onclick="app.openEditModal()">✏️ Edit / Add Links</div>
+    <div class="menu-item" onclick="app.saveSelf()">💾 Save Changes</div>
+    <div class="menu-item" onclick="location.reload()">🔄 Reload</div>
+</div>
+
+<div id="edit-modal">
+    <div class="modal-content neu-out">
+        <h2>Edit Configuration</h2>
+        <textarea id="config-input" class="neu-in"></textarea>
+        <div style="display: flex; gap: 16px; justify-content: flex-end;">
+            <button class="neu-out" style="padding: 10px 24px; cursor: pointer; color: var(--accent-pink);" onclick="document.getElementById('edit-modal').style.display='none'">Cancel</button>
+            <button class="neu-out" style="padding: 10px 24px; cursor: pointer; color: var(--accent-green); font-weight: bold;" onclick="app.applyConfig()">Apply & Save</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// ▼▼▼ 1. リンクの設定 (ここにURLを追加) ▼▼▼
+var APP_DATA = {
+  "links": [
+    "[LPつくるくん](https://gemini.google.com/gem/1S9KA-iCqcezLxM1Sgs06V9ZcUCF_HhpC?usp=sharing)",
+    "[画像よみとりくん](https://gemini.google.com/gem/1EubOpWnRszXT3deJlFPNJlSdTBBUF7Jp?usp=sharing)",
+    "[コード整いくん](https://gemini.google.com/gem/1WFu9FTfs8fl2wjOuMcMuuWI7nyIXw1zL?usp=sharing)",
+    "[コード要件チェック](https://gemini.google.com/gem/1Sl8l-3u6Q_WjD-Kcak9u-BHMt5ZVwVbg?usp=sharing)",
+  ]
+};
+
+// ▼▼▼ 2. アイコンのカスタマイズ (ここを自由に編集！) ▼▼▼
+var CUSTOM_ICONS = {
+    "lp": "🎨",         // 名前にLPが入っていたらパレット
+    "画像": "🖼️",       // 名前に画像が入っていたら額縁
+    "コード": "💻",     // 名前にコードが入っていたらPC
+    "要件": "📋",       // 要件ならクリップボード
+    "整い": "✨",       // 整いならキラキラ
+    "gemini": "🤖",    // ジェミニのURLならロボット
+    "youtube": "📺",   // YouTubeならテレビ
+    "slack": "💬",     // Slackなら吹き出し
+    "doc": "📄",       // ドキュメントなら紙
+    "drive": "📁"      // ドライブならフォルダ
+};
+// ▲▲▲ 設定ここまで ▲▲▲
+
+class SoftLauncher {
+    constructor() {
+        this.grid = document.getElementById('app-grid');
+        this.searchInput = document.getElementById('search-input');
+        this.contextMenu = document.getElementById('context-menu');
+        this.configInput = document.getElementById('config-input');
+        this.items = [];
+        this.init();
+    }
+
+    init() {
+        this.parseData();
+        this.render();
+        this.startClock();
+        this.setupEvents();
+    }
+
+    parseData() {
+        this.items = APP_DATA.links.map(line => {
+            let name, url;
+            const mdMatch = line.match(/^\[(.*?)\]\((.*?)\)/);
+            if (mdMatch) { name = mdMatch[1]; url = mdMatch[2]; }
+            else if (line.includes(',')) { const parts = line.split(','); name = parts[0].trim(); url = parts.slice(1).join(',').trim(); }
+            else { url = line.trim(); try { name = new URL(url).hostname.replace('www.', ''); } catch { name = url; } }
+            return { name, url, icon: this.getIcon(url, name) };
+        });
+    }
+
+    getIcon(url, name) {
+        const target = (name + " " + url).toLowerCase();
+        for (const [key, emoji] of Object.entries(CUSTOM_ICONS)) {
+            if (target.includes(key.toLowerCase())) return emoji;
+        }
+        return '🔗';
+    }
+
+    render(filter = '') {
+        this.grid.innerHTML = '';
+        const filtered = this.items.filter(item => item.name.toLowerCase().includes(filter.toLowerCase()) || item.url.toLowerCase().includes(filter.toLowerCase()));
+        filtered.forEach(item => {
+            const card = document.createElement('a');
+            card.className = 'app-card neu-out'; card.href = item.url; card.target = "_blank"; card.rel = "noopener noreferrer";
+            card.innerHTML = `<div class="app-icon">${item.icon}</div><div class="app-title">${item.name}</div>`;
+            this.grid.appendChild(card);
+        });
+        const addBtn = document.createElement('div');
+        addBtn.className = 'app-card neu-in'; addBtn.style.opacity = '0.5';
+        addBtn.innerHTML = `<div class="app-icon" style="color: var(--text-sub)">+</div>`;
+        addBtn.onclick = () => this.openEditModal();
+        this.grid.appendChild(addBtn);
+    }
+
+    setupEvents() {
+        this.searchInput.addEventListener('input', (e) => this.render(e.target.value));
+        document.addEventListener('contextmenu', (e) => { e.preventDefault(); this.showContextMenu(e.clientX, e.clientY); });
+        document.addEventListener('click', (e) => { if (!this.contextMenu.contains(e.target)) this.contextMenu.classList.remove('visible'); });
+        document.getElementById('btn-settings').onclick = () => this.openEditModal();
+    }
+
+    showContextMenu(x, y) {
+        const menuWidth = 200; const menuHeight = 150;
+        let finalX = x; let finalY = y;
+        if (x + menuWidth > window.innerWidth) finalX = x - menuWidth;
+        if (y + menuHeight > window.innerHeight) finalY = y - menuHeight;
+        this.contextMenu.style.left = `${finalX}px`; this.contextMenu.style.top = `${finalY}px`;
+        this.contextMenu.classList.add('visible');
+    }
+
+    startClock() {
+        const update = () => {
+            const now = new Date();
+            document.getElementById('clock-time').textContent = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            document.getElementById('clock-date').textContent = now.toLocaleDateString(undefined, {weekday: 'long', month: 'short', day: 'numeric'});
+        };
+        update(); setInterval(update, 1000);
+    }
+
+    openEditModal() {
+        this.configInput.value = APP_DATA.links.join('\n');
+        document.getElementById('edit-modal').style.display = 'flex';
+        this.contextMenu.classList.remove('visible');
+    }
+
+    applyConfig() {
+        const lines = this.configInput.value.split('\n').filter(l => l.trim().length > 0);
+        APP_DATA.links = lines;
+        this.parseData();
+        this.render();
+        document.getElementById('edit-modal').style.display = 'none';
+        this.saveSelf(); 
+    }
+
+    saveSelf() {
+        const currentSource = document.documentElement.outerHTML;
+        const configRegex = /\/\/\s*▼.*1\.\s*リンクの設定[\s\S]*?▲.*設定ここまで.*▲/g;
+        
+        const newConfigBlock = `// ▼▼▼ 1. リンクの設定 (ここにURLを追加) ▼▼▼
+var APP_DATA = ${JSON.stringify(APP_DATA, null, 2)};
+
+// ▼▼▼ 2. アイコンのカスタマイズ (ここを自由に編集！) ▼▼▼
+var CUSTOM_ICONS = ${JSON.stringify(CUSTOM_ICONS, null, 4)};
+// ▲▲▲ 設定ここまで ▲▲▲`;
+
+        if (!currentSource.match(configRegex)) {
+            alert("保存エラー: 設定ブロックが見つかりませんでした。");
+            return;
+        }
+
+        const newHtml = "<!DOCTYPE html>\n" + currentSource.replace(configRegex, newConfigBlock);
+        const blob = new Blob([newHtml], {type: 'text/html;charset=utf-8'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'soft-launcher-guide.html'; a.click();
+        
+        const btn = document.querySelector('#edit-modal button:last-child');
+        const originalText = btn.innerText;
+        btn.innerText = "Saved!";
+        setTimeout(() => btn.innerText = originalText, 1500);
+    }
+}
+
+const app = new SoftLauncher();
+</script>
+</body>
+</html>
